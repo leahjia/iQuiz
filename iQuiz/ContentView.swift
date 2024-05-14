@@ -23,19 +23,23 @@ struct Quiz: Identifiable, Hashable {
     }
 }
 
-struct Question: Identifiable {
+struct Question: Identifiable, Hashable {
     var id = UUID()
     var text: String
     var answers: [Answer]
 }
 
-struct Answer: Identifiable, Equatable {
+struct Answer: Identifiable, Equatable, Hashable {
     var id = UUID()
     var text: String
     var isCorrect: Bool
 
     static func ==(lhs: Answer, rhs: Answer) -> Bool {
         return lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 
@@ -105,7 +109,6 @@ struct QuestionView: View {
     @State var currentQuestionIndex: Int
     @State var selectedAnswer: Answer? = nil
     @State var score: Int
-    @State private var navigateToAnswerView = false
     
     var body: some View {
         let question = quiz.questions[currentQuestionIndex]
@@ -129,34 +132,21 @@ struct QuestionView: View {
                 }
             }
             
-            NavigationLink(
-                destination: AnswerView(
-                    quiz: quiz,
-                    question: question,
-                    selectedAnswer: selectedAnswer ?? question.answers[0],
-                    currentQuestionIndex: currentQuestionIndex,
-                    score: score
-                ),
-                isActive: $navigateToAnswerView
-            ) {
-                EmptyView()
-            }
-            
-            Button(action: {
-                if let selectedAnswer = selectedAnswer {
-                    let isCorrect = selectedAnswer.isCorrect
-                    if isCorrect {
-                        score += 1
-                    }
-                    navigateToAnswerView = true
-                }
-            }) {
+            NavigationLink(value: NavigationDestination.answer(quiz: quiz, question: question, selectedAnswer: selectedAnswer ?? question.answers[0], currentQuestionIndex: currentQuestionIndex, score: score)) {
                 Text("Submit")
             }
             .padding()
             .disabled(selectedAnswer == nil)
         }
         .navigationTitle("Question \(currentQuestionIndex + 1)")
+        .navigationDestination(for: NavigationDestination.self) { destination in
+            switch destination {
+            case .answer(let quiz, let question, let selectedAnswer, let currentQuestionIndex, let score):
+                AnswerView(quiz: quiz, question: question, selectedAnswer: selectedAnswer, currentQuestionIndex: currentQuestionIndex, score: score)
+            case .finished(let quiz, let score):
+                FinishedView(quiz: quiz, score: score)
+            }
+        }
     }
 }
 
@@ -166,8 +156,6 @@ struct AnswerView: View {
     let selectedAnswer: Answer
     let currentQuestionIndex: Int
     @State var score: Int
-    @State private var navigateToNextQuestion = false
-    @State private var navigateToFinishedView = false
     
     var body: some View {
         VStack {
@@ -190,40 +178,23 @@ struct AnswerView: View {
                 .padding()
             }
             
-            NavigationLink(
-                destination: QuestionView(
-                    quiz: quiz,
-                    currentQuestionIndex: currentQuestionIndex + 1,
-                    score: score
-                ),
-                isActive: $navigateToNextQuestion
-            ) {
-                EmptyView()
-            }
-            
-            NavigationLink(
-                destination: FinishedView(
-                    quiz: quiz,
-                    score: score
-                ),
-                isActive: $navigateToFinishedView
-            ) {
-                EmptyView()
-            }
-            
-            Button(action: {
-                if currentQuestionIndex + 1 < quiz.questions.count {
-                    navigateToNextQuestion = true
-                } else {
-                    navigateToFinishedView = true
-                }
-            }) {
+            NavigationLink(value: currentQuestionIndex + 1 < quiz.questions.count
+                    ? NavigationDestination.answer(quiz: quiz, question: quiz.questions[currentQuestionIndex + 1], selectedAnswer: selectedAnswer, currentQuestionIndex: currentQuestionIndex + 1, score: score)
+                    : NavigationDestination.finished(quiz: quiz, score: score)) {
                 Text("Next")
             }
             .padding()
         }
         .navigationTitle("Answer")
         .navigationBarBackButtonHidden(true)
+        .navigationDestination(for: NavigationDestination.self) { destination in
+            switch destination {
+            case .answer(let quiz, let question, let selectedAnswer, let currentQuestionIndex, let score):
+                AnswerView(quiz: quiz, question: question, selectedAnswer: selectedAnswer, currentQuestionIndex: currentQuestionIndex, score: score)
+            case .finished(let quiz, let score):
+                FinishedView(quiz: quiz, score: score)
+            }
+        }
     }
 }
 
@@ -249,6 +220,11 @@ struct FinishedView: View {
         .navigationTitle("Results")
         .navigationBarBackButtonHidden(true)
     }
+}
+
+enum NavigationDestination: Hashable {
+    case answer(quiz: Quiz, question: Question, selectedAnswer: Answer, currentQuestionIndex: Int, score: Int)
+    case finished(quiz: Quiz, score: Int)
 }
 
 #Preview {

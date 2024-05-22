@@ -157,6 +157,7 @@ struct QuestionView: View {
     @State var currentQuestionIndex: Int
     @State var selectedAnswer: Answer? = nil
     @State var score: Int
+    @State private var navigateToAnswerView = false
 
     var body: some View {
         let question = quiz.questions[currentQuestionIndex]
@@ -180,20 +181,13 @@ struct QuestionView: View {
                 }
             }
 
-            NavigationLink(
-                destination: AnswerView(
-                    quiz: quiz,
-                    question: question,
-                    selectedAnswer: selectedAnswer ?? question.answers[0],
-                    currentQuestionIndex: currentQuestionIndex,
-                    score: score
-                )
-                .onAppear {
-                    if let selectedAnswer = selectedAnswer, selectedAnswer.isCorrect {
-                        score += 1
-                    }
-                }
-            ) {
+            NavigationLink(destination: AnswerView(
+                quiz: quiz,
+                question: question,
+                selectedAnswer: selectedAnswer ?? question.answers[0],
+                currentQuestionIndex: currentQuestionIndex,
+                score: score
+            )) {
                 Text("Submit")
             }
             .padding()
@@ -217,7 +211,7 @@ struct AnswerView: View {
             Text(question.text)
                 .font(.title)
                 .padding()
-            
+
             ForEach(question.answers) { answer in
                 HStack {
                     Text(answer.text)
@@ -232,33 +226,11 @@ struct AnswerView: View {
                 }
                 .padding()
             }
-            
-            NavigationLink(
-                destination: QuestionView(
-                    quiz: quiz,
-                    currentQuestionIndex: currentQuestionIndex + 1,
-                    score: score
-                )
-                .onAppear {
-                    navigateToNextQuestion = false
-                    navigateToFinishedView = false
-                },
-                isActive: $navigateToNextQuestion
-            ) {
-                EmptyView()
-            }
-
-            NavigationLink(
-                destination: FinishedView(
-                    quiz: quiz,
-                    score: score
-                ),
-                isActive: $navigateToFinishedView
-            ) {
-                EmptyView()
-            }
 
             Button(action: {
+                if selectedAnswer.isCorrect {
+                    score += 1
+                }
                 if currentQuestionIndex + 1 < quiz.questions.count {
                     navigateToNextQuestion = true
                 } else {
@@ -268,6 +240,29 @@ struct AnswerView: View {
                 Text("Next")
             }
             .padding()
+            .background(
+                NavigationLink(
+                    destination: QuestionView(
+                        quiz: quiz,
+                        currentQuestionIndex: currentQuestionIndex + 1,
+                        score: score
+                    ),
+                    isActive: $navigateToNextQuestion
+                ) {
+                    EmptyView()
+                }
+            )
+            .background(
+                NavigationLink(
+                    destination: FinishedView(
+                        quiz: quiz,
+                        score: score
+                    ),
+                    isActive: $navigateToFinishedView
+                ) {
+                    EmptyView()
+                }
+            )
         }
         .navigationTitle("Answer")
         .navigationBarBackButtonHidden(true)

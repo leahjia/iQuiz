@@ -46,11 +46,59 @@ struct Answer: Identifiable, Equatable, Hashable {
 struct ContentView: View {
     let quizzes = [
         Quiz(title: "Mathematics", description: "Math equations and theories", icon: "function",
-             questions: [Question(text: "What is the square root of 16?", answers: [Answer(text: "3", isCorrect: false), Answer(text: "4", isCorrect: true), Answer(text: "5", isCorrect: false)])]),
+             questions: [
+                Question(text: "What is the square root of 16?", answers: [
+                    Answer(text: "3", isCorrect: false),
+                    Answer(text: "4", isCorrect: true),
+                    Answer(text: "5", isCorrect: false)
+                ]),
+                Question(text: "What is 5 + 3?", answers: [
+                    Answer(text: "7", isCorrect: false),
+                    Answer(text: "8", isCorrect: true),
+                    Answer(text: "9", isCorrect: false)
+                ]),
+                Question(text: "What is the derivative of x^2?", answers: [
+                    Answer(text: "x", isCorrect: false),
+                    Answer(text: "2x", isCorrect: true),
+                    Answer(text: "x^2", isCorrect: false)
+                ])
+             ]),
         Quiz(title: "Marvel Super Heroes", description: "Are you a true fan?", icon: "star.fill",
-             questions: [Question(text: "Who is Iron Man?", answers: [Answer(text: "Steve Rogers", isCorrect: false), Answer(text: "Tony Stark", isCorrect: true), Answer(text: "Bruce Banner", isCorrect: false)])]),
+             questions: [
+                Question(text: "Who is Iron Man?", answers: [
+                    Answer(text: "Steve Rogers", isCorrect: false),
+                    Answer(text: "Tony Stark", isCorrect: true),
+                    Answer(text: "Bruce Banner", isCorrect: false)
+                ]),
+                Question(text: "Who is the God of Thunder?", answers: [
+                    Answer(text: "Loki", isCorrect: false),
+                    Answer(text: "Thor", isCorrect: true),
+                    Answer(text: "Odin", isCorrect: false)
+                ]),
+                Question(text: "What is Captain America's shield made of?", answers: [
+                    Answer(text: "Adamantium", isCorrect: false),
+                    Answer(text: "Vibranium", isCorrect: true),
+                    Answer(text: "Carbonadium", isCorrect: false)
+                ])
+             ]),
         Quiz(title: "Science", description: "Explore the world of science", icon: "atom",
-             questions: [Question(text: "What is the chemical symbol for oxygen?", answers: [Answer(text: "O2", isCorrect: true), Answer(text: "H2O", isCorrect: false), Answer(text: "CO2", isCorrect: false)])])
+             questions: [
+                Question(text: "What is the chemical symbol for oxygen?", answers: [
+                    Answer(text: "O2", isCorrect: true),
+                    Answer(text: "H2O", isCorrect: false),
+                    Answer(text: "CO2", isCorrect: false)
+                ]),
+                Question(text: "What planet is known as the Red Planet?", answers: [
+                    Answer(text: "Earth", isCorrect: false),
+                    Answer(text: "Mars", isCorrect: true),
+                    Answer(text: "Jupiter", isCorrect: false)
+                ]),
+                Question(text: "What is the speed of light?", answers: [
+                    Answer(text: "300,000 km/s", isCorrect: true),
+                    Answer(text: "150,000 km/s", isCorrect: false),
+                    Answer(text: "450,000 km/s", isCorrect: false)
+                ])
+             ])
     ]
     
     @State private var showSettings = false
@@ -109,15 +157,15 @@ struct QuestionView: View {
     @State var currentQuestionIndex: Int
     @State var selectedAnswer: Answer? = nil
     @State var score: Int
-    
+
     var body: some View {
         let question = quiz.questions[currentQuestionIndex]
-        
+
         VStack {
             Text(question.text)
                 .font(.title)
                 .padding()
-            
+
             List(question.answers) { answer in
                 HStack {
                     Text(answer.text)
@@ -131,22 +179,27 @@ struct QuestionView: View {
                     selectedAnswer = answer
                 }
             }
-            
-            NavigationLink(value: NavigationDestination.answer(quiz: quiz, question: question, selectedAnswer: selectedAnswer ?? question.answers[0], currentQuestionIndex: currentQuestionIndex, score: score)) {
+
+            NavigationLink(
+                destination: AnswerView(
+                    quiz: quiz,
+                    question: question,
+                    selectedAnswer: selectedAnswer ?? question.answers[0],
+                    currentQuestionIndex: currentQuestionIndex,
+                    score: score
+                )
+                .onAppear {
+                    if let selectedAnswer = selectedAnswer, selectedAnswer.isCorrect {
+                        score += 1
+                    }
+                }
+            ) {
                 Text("Submit")
             }
             .padding()
             .disabled(selectedAnswer == nil)
         }
         .navigationTitle("Question \(currentQuestionIndex + 1)")
-        .navigationDestination(for: NavigationDestination.self) { destination in
-            switch destination {
-            case .answer(let quiz, let question, let selectedAnswer, let currentQuestionIndex, let score):
-                AnswerView(quiz: quiz, question: question, selectedAnswer: selectedAnswer, currentQuestionIndex: currentQuestionIndex, score: score)
-            case .finished(let quiz, let score):
-                FinishedView(quiz: quiz, score: score)
-            }
-        }
     }
 }
 
@@ -156,7 +209,9 @@ struct AnswerView: View {
     let selectedAnswer: Answer
     let currentQuestionIndex: Int
     @State var score: Int
-    
+    @State private var navigateToNextQuestion = false
+    @State private var navigateToFinishedView = false
+
     var body: some View {
         VStack {
             Text(question.text)
@@ -178,23 +233,44 @@ struct AnswerView: View {
                 .padding()
             }
             
-            NavigationLink(value: currentQuestionIndex + 1 < quiz.questions.count
-                           ? NavigationDestination.answer(quiz: quiz, question: quiz.questions[currentQuestionIndex + 1], selectedAnswer: selectedAnswer, currentQuestionIndex: currentQuestionIndex + 1, score: score)
-                           : NavigationDestination.finished(quiz: quiz, score: score)) {
+            NavigationLink(
+                destination: QuestionView(
+                    quiz: quiz,
+                    currentQuestionIndex: currentQuestionIndex + 1,
+                    score: score
+                )
+                .onAppear {
+                    navigateToNextQuestion = false
+                    navigateToFinishedView = false
+                },
+                isActive: $navigateToNextQuestion
+            ) {
+                EmptyView()
+            }
+
+            NavigationLink(
+                destination: FinishedView(
+                    quiz: quiz,
+                    score: score
+                ),
+                isActive: $navigateToFinishedView
+            ) {
+                EmptyView()
+            }
+
+            Button(action: {
+                if currentQuestionIndex + 1 < quiz.questions.count {
+                    navigateToNextQuestion = true
+                } else {
+                    navigateToFinishedView = true
+                }
+            }) {
                 Text("Next")
             }
-                           .padding()
+            .padding()
         }
         .navigationTitle("Answer")
         .navigationBarBackButtonHidden(true)
-        .navigationDestination(for: NavigationDestination.self) { destination in
-            switch destination {
-            case .answer(let quiz, let question, let selectedAnswer, let currentQuestionIndex, let score):
-                AnswerView(quiz: quiz, question: question, selectedAnswer: selectedAnswer, currentQuestionIndex: currentQuestionIndex, score: score)
-            case .finished(let quiz, let score):
-                FinishedView(quiz: quiz, score: score)
-            }
-        }
     }
 }
 
